@@ -126,7 +126,7 @@ const LoginScreen = ({ navigation }) => {
             style={styles.logoImage}
             resizeMode="contain"
           />
-          <Text style={styles.brandName}>conocrddex</Text>
+          <Text style={styles.brandName}>Concorddex</Text>
         </View>
 
         {/* Tab Switcher */}

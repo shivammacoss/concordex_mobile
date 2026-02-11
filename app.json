@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "conocrddex",
-    "slug": "conocrddex",
+    "name": "Concorddex",
+    "slug": "setupfx24",
     "version": "1.0.0",
     "runtimeVersion": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/Setupfx app icon.png",
+    "icon": "./assets/concorddexmobilelogo.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/SetupFX.png",
+      "image": "./assets/concorddexmobilelogo.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
@@ -27,15 +27,15 @@
           "NSAllowsLocalNetworking": true
         }
       },
-      "bundleIdentifier": "com.conocrddex.app"
+      "bundleIdentifier": "com.concorddex.app"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/Setupfx app icon.png",
+        "foregroundImage": "./assets/concorddexmobilelogo.png",
         "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.conocrddex.app"
+      "package": "com.concorddex.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"

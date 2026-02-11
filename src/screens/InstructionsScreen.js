@@ -107,7 +107,7 @@ const InstructionsScreen = ({ navigation }) => {
             <Ionicons name="book-outline" size={28} color={colors.accent} />
           </View>
           <View style={styles.welcomeText}>
-            <Text style={[styles.welcomeTitle, { color: colors.textPrimary }]}>Welcome to conocrddex</Text>
+            <Text style={[styles.welcomeTitle, { color: colors.textPrimary }]}>Welcome to Concorddex</Text>
             <Text style={[styles.welcomeSubtitle, { color: colors.textMuted }]}>Learn how to use our platform</Text>
           </View>
         </View>

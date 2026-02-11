@@ -122,13 +122,32 @@ const toastStyles = StyleSheet.create({
 
 const useToast = () => React.useContext(ToastContext);
 
-// Default instruments - fallback only, will be replaced by API data
+// Default instruments - matches web frontend TradingPage.jsx
 const defaultInstruments = [
-  // Minimal fallback - actual instruments fetched from backend API
   { symbol: 'EURUSD', name: 'EUR/USD', bid: 0, ask: 0, spread: 0, category: 'Forex', starred: true },
   { symbol: 'GBPUSD', name: 'GBP/USD', bid: 0, ask: 0, spread: 0, category: 'Forex', starred: true },
+  { symbol: 'USDJPY', name: 'USD/JPY', bid: 0, ask: 0, spread: 0, category: 'Forex', starred: false },
+  { symbol: 'USDCHF', name: 'USD/CHF', bid: 0, ask: 0, spread: 0, category: 'Forex', starred: false },
+  { symbol: 'AUDUSD', name: 'AUD/USD', bid: 0, ask: 0, spread: 0, category: 'Forex', starred: false },
+  { symbol: 'NZDUSD', name: 'NZD/USD', bid: 0, ask: 0, spread: 0, category: 'Forex', starred: false },
+  { symbol: 'USDCAD', name: 'USD/CAD', bid: 0, ask: 0, spread: 0, category: 'Forex', starred: false },
+  { symbol: 'EURGBP', name: 'EUR/GBP', bid: 0, ask: 0, spread: 0, category: 'Forex', starred: false },
+  { symbol: 'EURJPY', name: 'EUR/JPY', bid: 0, ask: 0, spread: 0, category: 'Forex', starred: false },
+  { symbol: 'GBPJPY', name: 'GBP/JPY', bid: 0, ask: 0, spread: 0, category: 'Forex', starred: false },
   { symbol: 'XAUUSD', name: 'Gold', bid: 0, ask: 0, spread: 0, category: 'Metals', starred: true },
+  { symbol: 'XAGUSD', name: 'Silver', bid: 0, ask: 0, spread: 0, category: 'Metals', starred: false },
   { symbol: 'BTCUSD', name: 'Bitcoin', bid: 0, ask: 0, spread: 0, category: 'Crypto', starred: true },
+  { symbol: 'ETHUSD', name: 'Ethereum', bid: 0, ask: 0, spread: 0, category: 'Crypto', starred: false },
+  { symbol: 'BNBUSD', name: 'BNB', bid: 0, ask: 0, spread: 0, category: 'Crypto', starred: false },
+  { symbol: 'SOLUSD', name: 'Solana', bid: 0, ask: 0, spread: 0, category: 'Crypto', starred: false },
+  { symbol: 'XRPUSD', name: 'XRP', bid: 0, ask: 0, spread: 0, category: 'Crypto', starred: false },
+  { symbol: 'ADAUSD', name: 'Cardano', bid: 0, ask: 0, spread: 0, category: 'Crypto', starred: false },
+  { symbol: 'DOGEUSD', name: 'Dogecoin', bid: 0, ask: 0, spread: 0, category: 'Crypto', starred: false },
+  { symbol: 'DOTUSD', name: 'Polkadot', bid: 0, ask: 0, spread: 0, category: 'Crypto', starred: false },
+  { symbol: 'MATICUSD', name: 'Polygon', bid: 0, ask: 0, spread: 0, category: 'Crypto', starred: false },
+  { symbol: 'LTCUSD', name: 'Litecoin', bid: 0, ask: 0, spread: 0, category: 'Crypto', starred: false },
+  { symbol: 'AVAXUSD', name: 'Avalanche', bid: 0, ask: 0, spread: 0, category: 'Crypto', starred: false },
+  { symbol: 'LINKUSD', name: 'Chainlink', bid: 0, ask: 0, spread: 0, category: 'Crypto', starred: false },
 ];
 
 // Shared context for trading data
@@ -318,14 +337,78 @@ const TradingProvider = ({ children, navigation, route }) => {
     }
   }, [selectedAccount, isChallengeMode, selectedChallengeAccount]);
 
+  // Direct price fetching (Binance for crypto, backend for forex/metals)
+  const lastSocketPriceTime = useRef(0);
+  const hasSocketPrices = useRef(false);
+  
+  const BINANCE_MAP = {
+    'BTCUSD': 'BTCUSDT', 'ETHUSD': 'ETHUSDT', 'BNBUSD': 'BNBUSDT', 'SOLUSD': 'SOLUSDT',
+    'XRPUSD': 'XRPUSDT', 'ADAUSD': 'ADAUSDT', 'DOGEUSD': 'DOGEUSDT', 'DOTUSD': 'DOTUSDT',
+    'MATICUSD': 'MATICUSDT', 'LTCUSD': 'LTCUSDT', 'AVAXUSD': 'AVAXUSDT', 'LINKUSD': 'LINKUSDT'
+  };
+  const FOREX_METALS = ['EURUSD','GBPUSD','USDJPY','USDCHF','AUDUSD','NZDUSD','USDCAD','EURGBP','EURJPY','GBPJPY','XAUUSD','XAGUSD'];
+
+  const fetchPricesHTTP = async () => {
+    const prices = {};
+    
+    // 1. Fetch all crypto from Binance directly (single call, fast)
+    try {
+      const res = await fetch('https://api.binance.com/api/v3/ticker/bookTicker');
+      const tickers = await res.json();
+      const tickerMap = {};
+      tickers.forEach(t => { tickerMap[t.symbol] = t; });
+      Object.entries(BINANCE_MAP).forEach(([symbol, binanceSymbol]) => {
+        const ticker = tickerMap[binanceSymbol];
+        if (ticker) {
+          prices[symbol] = { bid: parseFloat(ticker.bidPrice), ask: parseFloat(ticker.askPrice) };
+        }
+      });
+    } catch (e) {
+      console.error('[Mobile] Binance fetch error:', e.message);
+    }
+    
+    // 2. Fetch forex/metals from backend (individual endpoints)
+    try {
+      const results = await Promise.allSettled(
+        FOREX_METALS.map(async (symbol) => {
+          const res = await fetch(`${API_URL}/prices/${symbol}`);
+          const data = await res.json();
+          if (data.success && data.price) {
+            prices[symbol] = data.price;
+          }
+        })
+      );
+    } catch (e) {
+      console.error('[Mobile] Forex price fetch error:', e.message);
+    }
+    
+    // Update state with fetched prices
+    const priceCount = Object.keys(prices).length;
+    if (priceCount > 0) {
+      console.log('[Mobile] Fetched', priceCount, 'prices (direct)');
+      setLivePrices(prev => ({ ...prev, ...prices }));
+      setInstruments(prev => prev.map(inst => {
+        const price = prices[inst.symbol];
+        if (price && price.bid) {
+          return { ...inst, bid: price.bid, ask: price.ask || price.bid, spread: Math.abs((price.ask || price.bid) - price.bid) };
+        }
+        return inst;
+      }));
+    }
+  };
+
   // WebSocket connection for real-time prices
   useEffect(() => {
+    console.log('[Mobile] Starting price connections, API_URL:', API_URL);
+    
     // Connect to WebSocket
     socketService.connect();
     
     // Subscribe to price updates via WebSocket - tick-to-tick for fastest updates
     const unsubscribe = socketService.addPriceListener((prices) => {
       if (prices && Object.keys(prices).length > 0) {
+        hasSocketPrices.current = true;
+        lastSocketPriceTime.current = Date.now();
         // Tick-to-tick updates - immediate state update for fastest price display
         setLivePrices(prev => ({ ...prev, ...prices }));
         
@@ -344,6 +427,18 @@ const TradingProvider = ({ children, navigation, route }) => {
     fetchAdminSpreads();
     fetchMarketWatchNews();
     
+    // Initial HTTP price fetch (immediate prices while socket connects)
+    console.log('[Mobile] Triggering initial HTTP price fetch');
+    fetchPricesHTTP();
+    
+    // HTTP polling fallback - always poll every 2s if socket isn't delivering
+    const httpPollInterval = setInterval(() => {
+      const timeSinceLastSocket = Date.now() - lastSocketPriceTime.current;
+      if (!hasSocketPrices.current || timeSinceLastSocket > 5000) {
+        fetchPricesHTTP();
+      }
+    }, 2000);
+    
     // Refresh news every 30 seconds
     const newsInterval = setInterval(fetchMarketWatchNews, 30000);
     
@@ -354,6 +449,7 @@ const TradingProvider = ({ children, navigation, route }) => {
     
     return () => {
       unsubscribe();
+      clearInterval(httpPollInterval);
       clearInterval(newsInterval);
       clearInterval(slTpInterval);
     };
@@ -1628,6 +1724,30 @@ const QuotesTab = ({ navigation }) => {
   const [quickSlValue, setQuickSlValue] = useState('');
   const [pendingQuickTradeSide, setPendingQuickTradeSide] = useState(null);
   
+  // Swipe down to close order panel
+  const panY = useRef(new Animated.Value(0)).current;
+  const orderPanelPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          panY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 100 || gestureState.vy > 0.5) {
+          Animated.timing(panY, { toValue: 500, duration: 200, useNativeDriver: true }).start(() => {
+            setShowOrderPanel(false);
+            panY.setValue(0);
+          });
+        } else {
+          Animated.spring(panY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
+        }
+      },
+    })
+  ).current;
+
   // Get leverage from account
   const getAccountLeverage = () => {
     if (ctx.isChallengeMode && ctx.selectedChallengeAccount) {
@@ -1636,9 +1756,10 @@ const QuotesTab = ({ navigation }) => {
     return ctx.selectedAccount?.leverage || ctx.selectedAccount?.accountTypeId?.leverage || '1:100';
   };
   
-  const segments = ['Forex', 'Metals', 'Commodities', 'Crypto'];
+  const segments = ['Forex', 'Metals', 'Crypto'];
 
   const openTradePanel = (instrument) => {
+    panY.setValue(0);
     setSelectedInstrument(instrument);
     setShowOrderPanel(true);
   };
@@ -1973,6 +2094,7 @@ const QuotesTab = ({ navigation }) => {
             activeOpacity={1} 
             onPress={() => setShowOrderPanel(false)}
           />
+          <Animated.View style={{ transform: [{ translateY: panY }], flex: 1, justifyContent: 'flex-end' }}>
           <ScrollView 
             ref={orderScrollRef}
             style={[styles.orderPanelScroll, { backgroundColor: colors.bgCard }]} 
@@ -1981,8 +2103,10 @@ const QuotesTab = ({ navigation }) => {
             showsVerticalScrollIndicator={false}
           >
             <View style={[styles.orderPanelContainer, { backgroundColor: colors.bgCard }]}>
-              {/* Handle Bar */}
-              <View style={[styles.orderPanelHandle, { backgroundColor: colors.border }]} />
+              {/* Handle Bar - Swipe down to close */}
+              <View {...orderPanelPanResponder.panHandlers} style={{ alignItems: 'center', paddingVertical: 12 }}>
+                <View style={[styles.orderPanelHandle, { backgroundColor: colors.border }]} />
+              </View>
               
               {/* Header */}
               <View style={styles.orderPanelHeaderRow}>
@@ -2235,6 +2359,7 @@ const QuotesTab = ({ navigation }) => {
               </View>
             </View>
           </ScrollView>
+          </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -3876,23 +4001,23 @@ const ChartTab = ({ route }) => {
       {/* Symbol Picker Modal - Add new chart */}
       <Modal visible={showSymbolPicker} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.symbolPickerModal}>
-            <View style={styles.symbolPickerHeader}>
-              <Text style={styles.symbolPickerTitle}>Add Chart</Text>
+          <View style={[styles.symbolPickerModal, { backgroundColor: colors.bgPrimary }]}>
+            <View style={[styles.symbolPickerHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.symbolPickerTitle, { color: colors.textPrimary }]}>Add Chart</Text>
               <TouchableOpacity onPress={() => setShowSymbolPicker(false)}>
-                <Ionicons name="close" size={24} color="#fff" />
+                <Ionicons name="close" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
             <ScrollView>
               {ctx.instruments.map(inst => (
                 <TouchableOpacity
                   key={inst.symbol}
-                  style={[styles.symbolPickerItem, chartTabs.some(t => t.symbol === inst.symbol) && styles.symbolPickerItemActive]}
+                  style={[styles.symbolPickerItem, { borderBottomColor: colors.border }, chartTabs.some(t => t.symbol === inst.symbol) && styles.symbolPickerItemActive]}
                   onPress={() => addNewChartTab(inst.symbol)}
                 >
                   <View>
-                    <Text style={styles.symbolPickerSymbol}>{inst.symbol}</Text>
-                    <Text style={styles.symbolPickerName}>{inst.name}</Text>
+                    <Text style={[styles.symbolPickerSymbol, { color: colors.textPrimary }]}>{inst.symbol}</Text>
+                    <Text style={[styles.symbolPickerName, { color: colors.textMuted }]}>{inst.name}</Text>
                   </View>
                   {chartTabs.some(t => t.symbol === inst.symbol) && <Ionicons name="checkmark" size={20} color="#dc2626" />}
                 </TouchableOpacity>
