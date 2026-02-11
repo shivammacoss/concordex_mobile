@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { API_URL, API_BASE_URL } from '../config';
 import { useTheme } from '../context/ThemeContext';
 
@@ -277,6 +278,18 @@ const ProfileScreen = ({ navigation }) => {
     }
   };
 
+  // Convert image URI to base64 data URL
+  const imageToBase64 = async (uri) => {
+    if (!uri) return null;
+    try {
+      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+      return `data:image/jpeg;base64,${base64}`;
+    } catch (e) {
+      console.error('Error converting image to base64:', e);
+      return null;
+    }
+  };
+
   const handleSubmitKyc = async () => {
     if (!kycData.documentNumber) {
       Alert.alert('Error', 'Please enter document number');
@@ -295,42 +308,33 @@ const ProfileScreen = ({ navigation }) => {
     try {
       const token = await SecureStore.getItemAsync('token');
       
-      // Use FormData for file upload instead of base64
-      const formData = new FormData();
-      formData.append('userId', user._id);
-      formData.append('documentType', kycData.documentType);
-      formData.append('documentNumber', kycData.documentNumber);
+      // Convert images to base64 data URLs
+      console.log('Converting images to base64...');
+      const frontBase64 = await imageToBase64(kycData.frontImage);
+      const backBase64 = kycData.backImage ? await imageToBase64(kycData.backImage) : null;
+      const selfieBase64 = await imageToBase64(kycData.selfieImage);
       
-      // Append front image
-      formData.append('frontImage', {
-        uri: kycData.frontImage,
-        type: 'image/jpeg',
-        name: 'front.jpg',
-      });
-      
-      // Append back image if exists
-      if (kycData.backImage) {
-        formData.append('backImage', {
-          uri: kycData.backImage,
-          type: 'image/jpeg',
-          name: 'back.jpg',
-        });
+      if (!frontBase64 || !selfieBase64) {
+        Alert.alert('Error', 'Failed to process images. Please try again.');
+        setIsSubmitting(false);
+        return;
       }
       
-      // Append selfie image
-      formData.append('selfieImage', {
-        uri: kycData.selfieImage,
-        type: 'image/jpeg',
-        name: 'selfie.jpg',
-      });
-
-      console.log('Submitting KYC with FormData...');
-      const res = await fetch(`${API_URL}/kyc/submit-files`, {
+      console.log('Submitting KYC...');
+      const res = await fetch(`${API_URL}/kyc/submit`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-        body: formData,
+        body: JSON.stringify({
+          userId: user._id,
+          documentType: kycData.documentType,
+          documentNumber: kycData.documentNumber,
+          frontImage: frontBase64,
+          backImage: backBase64,
+          selfieImage: selfieBase64,
+        }),
       });
       const data = await res.json();
       console.log('KYC submit response:', data);

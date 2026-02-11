@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as Updates from 'expo-updates';
 import { AuthProvider } from './src/context/AuthContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 
@@ -62,6 +63,25 @@ const AppContent = () => {
 };
 
 export default function App() {
+  // Check for OTA updates on app start
+  React.useEffect(() => {
+    async function checkForUpdates() {
+      try {
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          console.log('[OTA] Update available, downloading...');
+          await Updates.fetchUpdateAsync();
+          console.log('[OTA] Update downloaded, reloading...');
+          await Updates.reloadAsync();
+        }
+      } catch (error) {
+        console.log('[OTA] Error checking for updates:', error);
+      }
+    }
+    
+    checkForUpdates();
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000000' }}>
       <SafeAreaProvider>
