@@ -47,15 +47,13 @@ const AccountsScreen = ({ navigation, route }) => {
   const [transferAmount, setTransferAmount] = useState('');
   const [isTransferring, setIsTransferring] = useState(false);
   
-  // Withdrawal request states
-  const [withdrawMethod, setWithdrawMethod] = useState('Bank'); // 'Bank', 'UPI'
-  const [bankDetails, setBankDetails] = useState({
-    bankName: '',
-    accountNumber: '',
-    ifscCode: '',
-    accountHolderName: '',
-  });
-  const [upiId, setUpiId] = useState('');
+  // Withdrawal request states (matches web)
+  const [withdrawalType, setWithdrawalType] = useState(''); // 'local' or 'crypto'
+  const [withdrawalNote, setWithdrawalNote] = useState('');
+  const [userBankAccounts, setUserBankAccounts] = useState([]);
+  const [userCryptoWallets, setUserCryptoWallets] = useState([]);
+  const [selectedBankAccount, setSelectedBankAccount] = useState(null);
+  const [selectedCryptoWallet, setSelectedCryptoWallet] = useState(null);
   
   // Handle incoming route params for deposit/withdraw action
   const [pendingAction, setPendingAction] = useState(null);
@@ -73,7 +71,9 @@ const AccountsScreen = ({ navigation, route }) => {
             fetchAccounts(),
             fetchChallengeAccounts(),
             fetchWalletBalance(),
-            fetchChallengeStatus()
+            fetchChallengeStatus(),
+            fetchUserBankAccounts(),
+            fetchUserCryptoWallets()
           ]);
         } catch (e) {
           console.error('Error loading accounts data:', e);
@@ -374,8 +374,32 @@ const AccountsScreen = ({ navigation, route }) => {
     setIsTransferring(false);
   };
 
-  // Submit withdrawal request to admin (from wallet to bank/UPI)
+  const fetchUserBankAccounts = async () => {
+    try {
+      const res = await fetch(`${API_URL}/payment-methods/user-banks/${user._id}/approved`);
+      const data = await res.json();
+      setUserBankAccounts(data.accounts || []);
+    } catch (e) {
+      console.error('Error fetching user bank accounts:', e);
+    }
+  };
+
+  const fetchUserCryptoWallets = async () => {
+    try {
+      const res = await fetch(`${API_URL}/payment-methods/user-crypto/${user._id}/approved`);
+      const data = await res.json();
+      setUserCryptoWallets(data.wallets || []);
+    } catch (e) {
+      console.error('Error fetching user crypto wallets:', e);
+    }
+  };
+
+  // Submit withdrawal request (matches web - Local/Crypto)
   const handleWithdrawRequest = async () => {
+    if (!withdrawalType) {
+      Alert.alert('Error', 'Please select withdrawal type');
+      return;
+    }
     if (!transferAmount || parseFloat(transferAmount) <= 0) {
       Alert.alert('Error', 'Please enter a valid amount');
       return;
@@ -384,53 +408,66 @@ const AccountsScreen = ({ navigation, route }) => {
       Alert.alert('Error', 'Insufficient wallet balance');
       return;
     }
-
-    // Validate payment details
-    if (withdrawMethod === 'Bank') {
-      if (!bankDetails.bankName || !bankDetails.accountNumber || !bankDetails.ifscCode || !bankDetails.accountHolderName) {
-        Alert.alert('Error', 'Please fill all bank details');
-        return;
-      }
-    } else if (withdrawMethod === 'UPI') {
-      if (!upiId) {
-        Alert.alert('Error', 'Please enter UPI ID');
-        return;
-      }
+    if (withdrawalType === 'local' && !selectedBankAccount && !selectedCryptoWallet) {
+      Alert.alert('Error', 'Please select a withdrawal account');
+      return;
+    }
+    if (withdrawalType === 'crypto' && !selectedCryptoWallet) {
+      Alert.alert('Error', 'Please select a crypto wallet');
+      return;
     }
 
     setIsTransferring(true);
     try {
-      const bankAccountDetails = withdrawMethod === 'Bank' 
-        ? {
-            type: 'Bank',
-            bankName: bankDetails.bankName,
-            accountNumber: bankDetails.accountNumber,
-            ifscCode: bankDetails.ifscCode,
-            accountHolderName: bankDetails.accountHolderName,
+      const withdrawalData = {
+        userId: user._id,
+        amount: parseFloat(transferAmount),
+        withdrawalType: withdrawalType,
+        note: withdrawalNote || '',
+      };
+
+      if (withdrawalType === 'local') {
+        if (selectedCryptoWallet && selectedCryptoWallet.network === 'LOCAL') {
+          withdrawalData.paymentMethod = 'Local';
+          withdrawalData.cryptoWalletId = selectedCryptoWallet._id;
+          withdrawalData.localDetails = { address: selectedCryptoWallet.walletAddress };
+        } else if (selectedBankAccount) {
+          if (selectedBankAccount.type === 'Local Withdrawal') {
+            withdrawalData.paymentMethod = 'Local';
+            withdrawalData.bankAccountId = selectedBankAccount._id;
+            withdrawalData.localDetails = { address: selectedBankAccount.localAddress };
+          } else {
+            withdrawalData.paymentMethod = selectedBankAccount.type === 'UPI' ? 'UPI' : 'Bank Transfer';
+            withdrawalData.bankAccountId = selectedBankAccount._id;
+            withdrawalData.bankAccountDetails = selectedBankAccount.type === 'UPI'
+              ? { type: 'UPI', upiId: selectedBankAccount.upiId }
+              : { type: 'Bank', bankName: selectedBankAccount.bankName, accountNumber: selectedBankAccount.accountNumber, ifscCode: selectedBankAccount.ifscCode };
           }
-        : {
-            type: 'UPI',
-            upiId: upiId,
-          };
+        }
+      } else {
+        withdrawalData.paymentMethod = 'Crypto';
+        withdrawalData.cryptoWalletId = selectedCryptoWallet._id;
+        withdrawalData.cryptoDetails = {
+          network: selectedCryptoWallet.network,
+          address: selectedCryptoWallet.walletAddress,
+        };
+      }
 
       const res = await fetch(`${API_URL}/wallet/withdraw`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user._id,
-          amount: parseFloat(transferAmount),
-          paymentMethod: withdrawMethod === 'Bank' ? 'Bank Transfer' : 'UPI',
-          bankAccountDetails,
-        })
+        body: JSON.stringify(withdrawalData),
       });
       const data = await res.json();
       
       if (res.ok) {
-        Alert.alert('Success', 'Withdrawal request submitted! Admin will process it shortly.');
+        Alert.alert('Success', 'Withdrawal request submitted successfully!');
         setShowWithdrawRequestModal(false);
         setTransferAmount('');
-        setBankDetails({ bankName: '', accountNumber: '', ifscCode: '', accountHolderName: '' });
-        setUpiId('');
+        setWithdrawalType('');
+        setWithdrawalNote('');
+        setSelectedBankAccount(null);
+        setSelectedCryptoWallet(null);
         fetchWalletBalance();
       } else {
         Alert.alert('Error', data.message || 'Withdrawal request failed');
@@ -1053,26 +1090,58 @@ const AccountsScreen = ({ navigation, route }) => {
         </View>
       </Modal>
 
-      {/* Withdrawal Request Modal - To Bank/UPI */}
+      {/* Withdrawal Request Modal - Matches Web (Local/Crypto) */}
       <Modal visible={showWithdrawRequestModal} animationType="slide" transparent onRequestClose={() => setShowWithdrawRequestModal(false)}>
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.modalBackdrop} onPress={() => setShowWithdrawRequestModal(false)} />
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ justifyContent: 'flex-end', flexGrow: 1 }}>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ justifyContent: 'flex-end', flexGrow: 1 }} keyboardShouldPersistTaps="handled">
             <View style={[styles.transferModalContent, { backgroundColor: colors.bgCard, maxHeight: '90%' }]}>
               <View style={styles.modalHeader}>
                 <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Withdraw Funds</Text>
-                <TouchableOpacity onPress={() => setShowWithdrawRequestModal(false)}>
+                <TouchableOpacity onPress={() => { setShowWithdrawRequestModal(false); setWithdrawalType(''); setWithdrawalNote(''); setSelectedBankAccount(null); setSelectedCryptoWallet(null); }}>
                   <Ionicons name="close" size={24} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
               
+              {/* Available Balance */}
               <View style={[styles.transferInfo, { backgroundColor: colors.bgSecondary }]}>
-                <View style={[styles.transferInfoRow, { borderBottomColor: colors.border }]}>
-                  <Text style={[styles.transferLabel, { color: colors.textMuted }]}>Wallet Balance</Text>
-                  <Text style={[styles.transferValueGold, { color: colors.primary }]}>${walletBalance.toFixed(2)}</Text>
+                <View style={[styles.transferInfoRow, { borderBottomWidth: 0 }]}>
+                  <Text style={[styles.transferLabel, { color: colors.textMuted }]}>Available Balance</Text>
+                  <Text style={[{ color: colors.textPrimary, fontWeight: 'bold', fontSize: 20 }]}>${walletBalance.toLocaleString()}</Text>
                 </View>
               </View>
 
+              {/* Select Withdrawal Type */}
+              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Select Withdrawal Type</Text>
+              <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+                <TouchableOpacity
+                  style={[{
+                    flex: 1, padding: 16, borderRadius: 12, borderWidth: 1, alignItems: 'center', gap: 8,
+                  }, withdrawalType === 'local'
+                    ? { borderColor: colors.accent || colors.primary, backgroundColor: (colors.accent || colors.primary) + '15' }
+                    : { borderColor: colors.border, backgroundColor: colors.bgSecondary }
+                  ]}
+                  onPress={() => { setWithdrawalType('local'); setSelectedCryptoWallet(null); setSelectedBankAccount(null); }}
+                >
+                  <Ionicons name="business-outline" size={24} color={withdrawalType === 'local' ? (colors.accent || colors.primary) : colors.textMuted} />
+                  <Text style={{ fontWeight: '600', color: withdrawalType === 'local' ? (colors.accent || colors.primary) : colors.textPrimary }}>Local Withdrawal</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[{
+                    flex: 1, padding: 16, borderRadius: 12, borderWidth: 1, alignItems: 'center', gap: 8,
+                  }, withdrawalType === 'crypto'
+                    ? { borderColor: colors.accent || colors.primary, backgroundColor: (colors.accent || colors.primary) + '15' }
+                    : { borderColor: colors.border, backgroundColor: colors.bgSecondary }
+                  ]}
+                  onPress={() => { setWithdrawalType('crypto'); setSelectedCryptoWallet(null); setSelectedBankAccount(null); }}
+                >
+                  <Ionicons name="wallet-outline" size={24} color={withdrawalType === 'crypto' ? (colors.accent || colors.primary) : colors.textMuted} />
+                  <Text style={{ fontWeight: '600', color: withdrawalType === 'crypto' ? (colors.accent || colors.primary) : colors.textPrimary }}>Crypto Withdrawal</Text>
+                  <Text style={{ fontSize: 11, color: colors.textMuted }}>USDT / BTC</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Amount */}
               <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Amount (USD)</Text>
               <TextInput
                 style={[styles.transferInput, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
@@ -1083,91 +1152,134 @@ const AccountsScreen = ({ navigation, route }) => {
                 keyboardType="numeric"
               />
 
-              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Payment Method</Text>
-              <View style={styles.methodRow}>
+              {/* Local Withdrawal - Account Selection */}
+              {withdrawalType === 'local' && (
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Select Local Withdrawal Account</Text>
+                  {(userBankAccounts.filter(acc => acc.type === 'Local Withdrawal').length === 0 &&
+                    userCryptoWallets.filter(w => w.network === 'LOCAL').length === 0) ? (
+                    <View style={{ padding: 16, borderRadius: 12, borderWidth: 1, alignItems: 'center', borderColor: colors.border, backgroundColor: colors.bgSecondary }}>
+                      <Text style={{ color: colors.textMuted, marginBottom: 12 }}>No approved local withdrawal accounts found.</Text>
+                      <TouchableOpacity
+                        onPress={() => { setShowWithdrawRequestModal(false); navigation.navigate('Profile'); }}
+                        style={{ backgroundColor: colors.accent || colors.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 }}
+                      >
+                        <Text style={{ color: '#000', fontWeight: '600' }}>Add Local Withdrawal Account</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View style={{ gap: 8 }}>
+                      {userBankAccounts.filter(acc => acc.type === 'Local Withdrawal').map((account) => (
+                        <TouchableOpacity
+                          key={account._id}
+                          onPress={() => { setSelectedBankAccount(account); setSelectedCryptoWallet(null); }}
+                          style={[{
+                            padding: 12, borderRadius: 10, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 12,
+                          }, selectedBankAccount?._id === account._id
+                            ? { borderColor: colors.accent || colors.primary, backgroundColor: (colors.accent || colors.primary) + '15' }
+                            : { borderColor: colors.border, backgroundColor: colors.bgSecondary }
+                          ]}
+                        >
+                          <Ionicons name="business" size={20} color="#22d3ee" />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: colors.textPrimary, fontWeight: '500' }}>Local Withdrawal</Text>
+                            <Text style={{ color: colors.textMuted, fontSize: 12 }} numberOfLines={1}>{account.localAddress}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                      {userCryptoWallets.filter(w => w.network === 'LOCAL').map((w) => (
+                        <TouchableOpacity
+                          key={w._id}
+                          onPress={() => { setSelectedCryptoWallet(w); setSelectedBankAccount(null); }}
+                          style={[{
+                            padding: 12, borderRadius: 10, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 12,
+                          }, selectedCryptoWallet?._id === w._id
+                            ? { borderColor: colors.accent || colors.primary, backgroundColor: (colors.accent || colors.primary) + '15' }
+                            : { borderColor: colors.border, backgroundColor: colors.bgSecondary }
+                          ]}
+                        >
+                          <Ionicons name="business" size={20} color="#22d3ee" />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: colors.textPrimary, fontWeight: '500' }}>Local Withdrawal</Text>
+                            <Text style={{ color: colors.textMuted, fontSize: 12 }} numberOfLines={1}>{w.walletAddress}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Crypto Withdrawal - Wallet Selection */}
+              {withdrawalType === 'crypto' && (
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Select Crypto Wallet</Text>
+                  {userCryptoWallets.filter(w => w.network !== 'LOCAL').length === 0 ? (
+                    <View style={{ padding: 16, borderRadius: 12, borderWidth: 1, alignItems: 'center', borderColor: colors.border, backgroundColor: colors.bgSecondary }}>
+                      <Text style={{ color: colors.textMuted, marginBottom: 12 }}>No approved crypto wallets found.</Text>
+                      <TouchableOpacity
+                        onPress={() => { setShowWithdrawRequestModal(false); navigation.navigate('Profile'); }}
+                        style={{ backgroundColor: colors.accent || colors.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 }}
+                      >
+                        <Text style={{ color: '#000', fontWeight: '600' }}>Add Crypto Wallet</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View style={{ gap: 8 }}>
+                      {userCryptoWallets.filter(w => w.network !== 'LOCAL').map((w) => (
+                        <TouchableOpacity
+                          key={w._id}
+                          onPress={() => setSelectedCryptoWallet(w)}
+                          style={[{
+                            padding: 12, borderRadius: 10, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 12,
+                          }, selectedCryptoWallet?._id === w._id
+                            ? { borderColor: colors.accent || colors.primary, backgroundColor: (colors.accent || colors.primary) + '15' }
+                            : { borderColor: colors.border, backgroundColor: colors.bgSecondary }
+                          ]}
+                        >
+                          <Ionicons name="wallet" size={20} color="#f97316" />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: colors.textPrimary, fontWeight: '500' }}>{w.network}</Text>
+                            <Text style={{ color: colors.textMuted, fontSize: 12 }} numberOfLines={1}>{w.walletAddress}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Note */}
+              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Note (Optional)</Text>
+              <TextInput
+                style={[styles.transferInput, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary, height: 70, textAlignVertical: 'top' }]}
+                value={withdrawalNote}
+                onChangeText={setWithdrawalNote}
+                placeholder="Add any additional notes..."
+                placeholderTextColor={colors.textMuted}
+                multiline
+              />
+
+              {/* Buttons */}
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
                 <TouchableOpacity
-                  style={[styles.methodBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }, withdrawMethod === 'Bank' && { backgroundColor: `${colors.primary}20`, borderColor: colors.primary }]}
-                  onPress={() => setWithdrawMethod('Bank')}
+                  style={{ flex: 1, backgroundColor: colors.bgSecondary, paddingVertical: 14, borderRadius: 10, alignItems: 'center' }}
+                  onPress={() => { setShowWithdrawRequestModal(false); setTransferAmount(''); setWithdrawalType(''); setWithdrawalNote(''); setSelectedBankAccount(null); setSelectedCryptoWallet(null); }}
                 >
-                  <Ionicons name="business-outline" size={20} color={withdrawMethod === 'Bank' ? colors.primary : colors.textMuted} />
-                  <Text style={[styles.methodBtnText, { color: withdrawMethod === 'Bank' ? colors.primary : colors.textMuted }]}>Bank Transfer</Text>
+                  <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.methodBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }, withdrawMethod === 'UPI' && { backgroundColor: `${colors.primary}20`, borderColor: colors.primary }]}
-                  onPress={() => setWithdrawMethod('UPI')}
+                  style={[{ flex: 1, backgroundColor: colors.accent || colors.primary, paddingVertical: 14, borderRadius: 10, alignItems: 'center' }, isTransferring && { opacity: 0.6 }]}
+                  onPress={handleWithdrawRequest}
+                  disabled={isTransferring}
                 >
-                  <Ionicons name="phone-portrait-outline" size={20} color={withdrawMethod === 'UPI' ? colors.primary : colors.textMuted} />
-                  <Text style={[styles.methodBtnText, { color: withdrawMethod === 'UPI' ? colors.primary : colors.textMuted }]}>UPI</Text>
+                  {isTransferring ? (
+                    <ActivityIndicator color="#000" />
+                  ) : (
+                    <Text style={{ color: '#000', fontWeight: '700' }}>Submit Withdrawal</Text>
+                  )}
                 </TouchableOpacity>
               </View>
-
-              {withdrawMethod === 'Bank' && (
-                <View>
-                  <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Account Holder Name</Text>
-                  <TextInput
-                    style={[styles.transferInput, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
-                    value={bankDetails.accountHolderName}
-                    onChangeText={(text) => setBankDetails({ ...bankDetails, accountHolderName: text })}
-                    placeholder="Enter account holder name"
-                    placeholderTextColor={colors.textMuted}
-                  />
-                  
-                  <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Bank Name</Text>
-                  <TextInput
-                    style={[styles.transferInput, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
-                    value={bankDetails.bankName}
-                    onChangeText={(text) => setBankDetails({ ...bankDetails, bankName: text })}
-                    placeholder="Enter bank name"
-                    placeholderTextColor={colors.textMuted}
-                  />
-                  
-                  <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Account Number</Text>
-                  <TextInput
-                    style={[styles.transferInput, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
-                    value={bankDetails.accountNumber}
-                    onChangeText={(text) => setBankDetails({ ...bankDetails, accountNumber: text })}
-                    placeholder="Enter account number"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="numeric"
-                  />
-                  
-                  <Text style={[styles.inputLabel, { color: colors.textMuted }]}>IFSC Code</Text>
-                  <TextInput
-                    style={[styles.transferInput, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
-                    value={bankDetails.ifscCode}
-                    onChangeText={(text) => setBankDetails({ ...bankDetails, ifscCode: text.toUpperCase() })}
-                    placeholder="Enter IFSC code"
-                    placeholderTextColor={colors.textMuted}
-                    autoCapitalize="characters"
-                  />
-                </View>
-              )}
-
-              {withdrawMethod === 'UPI' && (
-                <View>
-                  <Text style={[styles.inputLabel, { color: colors.textMuted }]}>UPI ID</Text>
-                  <TextInput
-                    style={[styles.transferInput, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
-                    value={upiId}
-                    onChangeText={setUpiId}
-                    placeholder="Enter UPI ID (e.g., name@upi)"
-                    placeholderTextColor={colors.textMuted}
-                    autoCapitalize="none"
-                  />
-                </View>
-              )}
-
-              <TouchableOpacity 
-                style={[styles.withdrawSubmitBtn, { backgroundColor: colors.primary }, isTransferring && styles.btnDisabled]}
-                onPress={handleWithdrawRequest}
-                disabled={isTransferring}
-              >
-                {isTransferring ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.withdrawSubmitBtnText}>Submit Withdrawal Request</Text>
-                )}
-              </TouchableOpacity>
             </View>
           </ScrollView>
         </View>

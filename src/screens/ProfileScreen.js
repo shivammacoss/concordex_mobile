@@ -36,6 +36,13 @@ const ProfileScreen = ({ navigation }) => {
   const [profileImage, setProfileImage] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   
+  // Crypto Wallet State (matches web)
+  const [userCryptoWallets, setUserCryptoWallets] = useState([]);
+  const [showCryptoForm, setShowCryptoForm] = useState(false);
+  const [cryptoFormType, setCryptoFormType] = useState('crypto'); // 'crypto' or 'local'
+  const [cryptoForm, setCryptoForm] = useState({ network: 'TRC20', walletAddress: '', localAddress: '' });
+  const [cryptoLoading, setCryptoLoading] = useState(false);
+  
   const [editData, setEditData] = useState({
     firstName: '',
     lastName: '',
@@ -51,6 +58,7 @@ const ProfileScreen = ({ navigation }) => {
   useEffect(() => {
     loadUser();
     fetchKycStatus();
+    fetchUserCryptoWallets();
   }, []);
 
   const fetchKycStatus = async () => {
@@ -70,6 +78,66 @@ const ProfileScreen = ({ navigation }) => {
     } catch (e) {
       console.error('Error fetching KYC status:', e);
     }
+  };
+
+  const fetchUserCryptoWallets = async () => {
+    try {
+      const userData = await SecureStore.getItemAsync('user');
+      if (userData) {
+        const parsed = JSON.parse(userData);
+        const res = await fetch(`${API_URL}/payment-methods/user-crypto/${parsed._id}`);
+        const data = await res.json();
+        setUserCryptoWallets(data.wallets || []);
+      }
+    } catch (e) {
+      console.error('Error fetching crypto wallets:', e);
+    }
+  };
+
+  const handleCryptoSubmit = async () => {
+    if (cryptoFormType === 'crypto') {
+      if (!cryptoForm.walletAddress) { Alert.alert('Error', 'Please enter wallet address'); return; }
+    } else {
+      if (!cryptoForm.localAddress) { Alert.alert('Error', 'Please enter address'); return; }
+    }
+    setCryptoLoading(true);
+    try {
+      const payload = cryptoFormType === 'crypto'
+        ? { userId: user._id, type: 'crypto', network: cryptoForm.network, walletAddress: cryptoForm.walletAddress }
+        : { userId: user._id, type: 'local', network: 'LOCAL', walletAddress: cryptoForm.localAddress };
+
+      const res = await fetch(`${API_URL}/payment-methods/user-crypto`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.success) {
+        Alert.alert('Success', cryptoFormType === 'crypto' ? 'Crypto wallet submitted for approval!' : 'Local withdrawal address submitted for approval!');
+        setShowCryptoForm(false);
+        setCryptoFormType('crypto');
+        setCryptoForm({ network: 'TRC20', walletAddress: '', localAddress: '' });
+        fetchUserCryptoWallets();
+      } else {
+        Alert.alert('Error', data.message || 'Failed to submit');
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to submit');
+    }
+    setCryptoLoading(false);
+  };
+
+  const handleDeleteCryptoWallet = (id) => {
+    Alert.alert('Delete Wallet', 'Are you sure you want to delete this wallet?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        try {
+          const res = await fetch(`${API_URL}/payment-methods/user-crypto/${id}`, { method: 'DELETE' });
+          const data = await res.json();
+          if (data.success) fetchUserCryptoWallets();
+        } catch (e) { console.error('Error deleting crypto wallet:', e); }
+      }},
+    ]);
   };
 
   const loadUser = async () => {
@@ -539,6 +607,69 @@ const ProfileScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
+        {/* Crypto Wallet Section (matches web) */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 0 }]}>Crypto Wallet</Text>
+            <TouchableOpacity
+              onPress={() => setShowCryptoForm(true)}
+              style={{ backgroundColor: '#22c55e20', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}
+            >
+              <Text style={{ color: '#22c55e', fontSize: 13, fontWeight: '600' }}>+ Add Wallet</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 12 }}>
+            Add crypto wallet addresses for withdrawals. Wallets require admin approval before use.
+          </Text>
+
+          {userCryptoWallets.length === 0 ? (
+            <View style={[{ padding: 20, borderRadius: 12, alignItems: 'center', backgroundColor: colors.bgCard }]}>
+              <Text style={{ color: colors.textMuted }}>No crypto wallets added yet</Text>
+            </View>
+          ) : (
+            <View style={{ gap: 10 }}>
+              {userCryptoWallets.map((w) => (
+                <View key={w._id} style={[{ padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bgCard }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                      <Ionicons
+                        name={w.network === 'LOCAL' ? 'location' : 'logo-bitcoin'}
+                        size={20}
+                        color={w.network === 'LOCAL' ? '#3b82f6' : '#f97316'}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>
+                            {w.network === 'LOCAL' ? 'Local Withdrawal' : w.network}
+                          </Text>
+                          <View style={{
+                            paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4,
+                            backgroundColor: w.status === 'Pending' ? '#eab30820' : w.status === 'Approved' ? '#22c55e20' : '#ef444420',
+                          }}>
+                            <Text style={{
+                              fontSize: 11, fontWeight: '500',
+                              color: w.status === 'Pending' ? '#eab308' : w.status === 'Approved' ? '#22c55e' : '#ef4444',
+                            }}>{w.status}</Text>
+                          </View>
+                        </View>
+                        <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }} numberOfLines={1}>{w.walletAddress}</Text>
+                        {w.rejectionReason && (
+                          <Text style={{ color: '#ef4444', fontSize: 11, marginTop: 2 }}>Reason: {w.rejectionReason}</Text>
+                        )}
+                      </View>
+                    </View>
+                    {w.status !== 'Approved' && (
+                      <TouchableOpacity onPress={() => handleDeleteCryptoWallet(w._id)} style={{ padding: 4 }}>
+                        <Ionicons name="close" size={16} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
         {/* Actions */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Account Settings</Text>
@@ -671,6 +802,123 @@ const ProfileScreen = ({ navigation }) => {
                 <Text style={styles.submitBtnText}>Change Password</Text>
               )}
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add Crypto Wallet Modal (matches web) */}
+      <Modal visible={showCryptoForm} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.bgCard }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Add Wallet</Text>
+              <TouchableOpacity onPress={() => { setShowCryptoForm(false); setCryptoFormType('crypto'); }}>
+                <Ionicons name="close" size={24} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Type Selection */}
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+              <TouchableOpacity
+                onPress={() => setCryptoFormType('crypto')}
+                style={[{
+                  flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }, cryptoFormType === 'crypto'
+                  ? { borderColor: '#f97316', backgroundColor: '#f9731620' }
+                  : { borderColor: colors.border, backgroundColor: colors.bgSecondary }
+                ]}
+              >
+                <Ionicons name="logo-bitcoin" size={18} color={cryptoFormType === 'crypto' ? '#f97316' : colors.textMuted} />
+                <Text style={{ color: cryptoFormType === 'crypto' ? '#f97316' : colors.textMuted, fontWeight: '600' }}>Crypto</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setCryptoFormType('local')}
+                style={[{
+                  flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }, cryptoFormType === 'local'
+                  ? { borderColor: '#3b82f6', backgroundColor: '#3b82f620' }
+                  : { borderColor: colors.border, backgroundColor: colors.bgSecondary }
+                ]}
+              >
+                <Ionicons name="location" size={18} color={cryptoFormType === 'local' ? '#3b82f6' : colors.textMuted} />
+                <Text style={{ color: cryptoFormType === 'local' ? '#3b82f6' : colors.textMuted, fontWeight: '600' }}>Local Withdrawal</Text>
+              </TouchableOpacity>
+            </View>
+
+            {cryptoFormType === 'crypto' ? (
+              <View>
+                {/* Network Selection */}
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Select Network *</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                  {['TRC20', 'ERC20', 'BEP20', 'BTC', 'ETH', 'LTC'].map((net) => (
+                    <TouchableOpacity
+                      key={net}
+                      onPress={() => setCryptoForm({ ...cryptoForm, network: net })}
+                      style={[{
+                        paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1,
+                      }, cryptoForm.network === net
+                        ? { borderColor: colors.accent, backgroundColor: colors.accent + '20' }
+                        : { borderColor: colors.border, backgroundColor: colors.bgSecondary }
+                      ]}
+                    >
+                      <Text style={{ color: cryptoForm.network === net ? colors.accent : colors.textMuted, fontSize: 13, fontWeight: '500' }}>{net}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Wallet Address */}
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Wallet Address *</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.bgSecondary, borderWidth: 1, borderColor: colors.border, color: colors.textPrimary, height: 80, textAlignVertical: 'top' }]}
+                  value={cryptoForm.walletAddress}
+                  onChangeText={(text) => setCryptoForm({ ...cryptoForm, walletAddress: text })}
+                  placeholder="Enter your crypto wallet address"
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                />
+
+                <View style={{ backgroundColor: '#eab30815', borderWidth: 1, borderColor: '#eab30830', borderRadius: 10, padding: 12, marginTop: 12 }}>
+                  <Text style={{ color: '#eab308', fontSize: 12 }}>⚠️ Double-check the address before submitting. Crypto transactions cannot be reversed.</Text>
+                </View>
+              </View>
+            ) : (
+              <View>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Address *</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.bgSecondary, borderWidth: 1, borderColor: colors.border, color: colors.textPrimary, height: 100, textAlignVertical: 'top' }]}
+                  value={cryptoForm.localAddress}
+                  onChangeText={(text) => setCryptoForm({ ...cryptoForm, localAddress: text })}
+                  placeholder="Enter your full address for local withdrawal"
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                />
+
+                <View style={{ backgroundColor: '#3b82f615', borderWidth: 1, borderColor: '#3b82f630', borderRadius: 10, padding: 12, marginTop: 12 }}>
+                  <Text style={{ color: '#3b82f6', fontSize: 12 }}>ℹ️ Local withdrawal allows you to receive funds at your physical address.</Text>
+                </View>
+              </View>
+            )}
+
+            {/* Buttons */}
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
+              <TouchableOpacity
+                onPress={() => { setShowCryptoForm(false); setCryptoFormType('crypto'); }}
+                style={{ flex: 1, backgroundColor: colors.bgSecondary, paddingVertical: 14, borderRadius: 10, alignItems: 'center' }}
+              >
+                <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleCryptoSubmit}
+                disabled={cryptoLoading}
+                style={[{ flex: 1, backgroundColor: '#22c55e', paddingVertical: 14, borderRadius: 10, alignItems: 'center' }, cryptoLoading && { opacity: 0.6 }]}
+              >
+                {cryptoLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={{ color: '#fff', fontWeight: '700' }}>Submit for Approval</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

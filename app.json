@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Concorddex",
-    "slug": "setupfx24",
+    "slug": "concorddex",
     "version": "1.0.0",
     "runtimeVersion": "1.0.0",
     "orientation": "portrait",
@@ -17,7 +17,7 @@
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0,
-      "url": "https://u.expo.dev/b998437a-a10b-49c5-8e51-020efdc57111"
+      "url": "https://u.expo.dev/466958bd-eda9-492a-87af-3f9314755232"
     },
     "ios": {
       "supportsTablet": true,
@@ -40,15 +40,15 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "extra": {
-      "eas": {
-        "projectId": "b998437a-a10b-49c5-8e51-020efdc57111"
-      }
-    },
     "owner": "shivam92388",
     "plugins": [
       "expo-font",
       "expo-updates"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "466958bd-eda9-492a-87af-3f9314755232"
+      }
+    }
   }
 }
