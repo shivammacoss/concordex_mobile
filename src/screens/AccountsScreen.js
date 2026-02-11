@@ -609,6 +609,35 @@ const AccountsScreen = ({ navigation, route }) => {
     }
   };
 
+  const handleResetDemo = (accountId) => {
+    Alert.alert(
+      'Reset Demo Account',
+      'Are you sure you want to reset this demo account? All open trades will be closed and balance will be reset.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Reset', style: 'destructive', onPress: async () => {
+          try {
+            const token = await SecureStore.getItemAsync('token');
+            const res = await fetch(`${API_URL}/trading-accounts/${accountId}/reset-demo`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            });
+            const data = await res.json();
+            if (data.success) {
+              Alert.alert('Success', 'Demo account has been reset successfully');
+              fetchAccounts();
+            } else {
+              Alert.alert('Error', data.message || 'Failed to reset demo account');
+            }
+          } catch (e) {
+            console.error('Demo reset error:', e);
+            Alert.alert('Error', 'Error resetting demo account');
+          }
+        }},
+      ]
+    );
+  };
+
   // Filter accounts based on active tab (matching web version logic)
   const liveAccounts = accounts.filter(a => !a.accountTypeId?.isDemo && !a.isDemo && a.status === 'Active');
   const demoAccounts = accounts.filter(a => (a.accountTypeId?.isDemo || a.isDemo) && a.status === 'Active');
@@ -839,32 +868,53 @@ const AccountsScreen = ({ navigation, route }) => {
                   </View>
                 </View>
 
-                {/* Action Buttons */}
-                <View style={styles.actionButtons}>
-                  <TouchableOpacity 
-                    style={[styles.depositBtn, { backgroundColor: colors.accent }]}
-                    onPress={() => handleDeposit(account)}
-                  >
-                    <Ionicons name="arrow-down-circle-outline" size={18} color="#000" />
-                    <Text style={styles.depositBtnText}>Deposit</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.withdrawBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
-                    onPress={() => handleWithdraw(account)}
-                  >
-                    <Ionicons name="arrow-up-circle-outline" size={18} color={colors.textPrimary} />
-                    <Text style={[styles.withdrawBtnText, { color: colors.textPrimary }]}>Withdraw</Text>
-                  </TouchableOpacity>
-                </View>
+                {/* Action Buttons - Different for Demo vs Live */}
+                {account.isDemo || account.accountTypeId?.isDemo ? (
+                  <View style={styles.actionButtons}>
+                    <TouchableOpacity 
+                      style={[styles.depositBtn, { backgroundColor: colors.accent, flex: 1 }]}
+                      onPress={() => selectAccountForTrading(account)}
+                    >
+                      <Ionicons name="trending-up" size={18} color="#000" />
+                      <Text style={styles.depositBtnText}>Trade</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.withdrawBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border, flex: 1 }]}
+                      onPress={() => handleResetDemo(account._id)}
+                    >
+                      <Ionicons name="refresh-outline" size={18} color="#eab308" />
+                      <Text style={[styles.withdrawBtnText, { color: '#eab308' }]}>Reset</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.actionButtons}>
+                      <TouchableOpacity 
+                        style={[styles.depositBtn, { backgroundColor: colors.accent }]}
+                        onPress={() => handleDeposit(account)}
+                      >
+                        <Ionicons name="arrow-down-circle-outline" size={18} color="#000" />
+                        <Text style={styles.depositBtnText}>Deposit</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.withdrawBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
+                        onPress={() => handleWithdraw(account)}
+                      >
+                        <Ionicons name="arrow-up-circle-outline" size={18} color={colors.textPrimary} />
+                        <Text style={[styles.withdrawBtnText, { color: colors.textPrimary }]}>Withdraw</Text>
+                      </TouchableOpacity>
+                    </View>
 
-                {/* Trade Button */}
-                <TouchableOpacity 
-                  style={[styles.tradeBtn, { backgroundColor: colors.accent }]}
-                  onPress={() => selectAccountForTrading(account)}
-                >
-                  <Ionicons name="trending-up" size={18} color="#000" />
-                  <Text style={styles.tradeBtnText}>Trade with this Account</Text>
-                </TouchableOpacity>
+                    {/* Trade Button */}
+                    <TouchableOpacity 
+                      style={[styles.tradeBtn, { backgroundColor: colors.accent }]}
+                      onPress={() => selectAccountForTrading(account)}
+                    >
+                      <Ionicons name="trending-up" size={18} color="#000" />
+                      <Text style={styles.tradeBtnText}>Trade with this Account</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             );
           })
