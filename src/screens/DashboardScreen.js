@@ -121,18 +121,18 @@ const DashboardScreen = () => {
 
   const getImpactColor = (impact) => {
     switch (impact) {
-      case 'high': return '#dc2626';
-      case 'medium': return '#dc2626';
-      case 'low': return '#dc2626';
+      case 'high': return '#d4a017';
+      case 'medium': return '#d4a017';
+      case 'low': return '#d4a017';
       default: return '#666';
     }
   };
 
   const quickActions = [
-    { id: 'accounts', icon: 'wallet-outline', label: 'Accounts', screen: 'Accounts', color: '#dc2626' },
-    { id: 'wallet', icon: 'card-outline', label: 'Wallet', screen: 'Wallet', color: '#dc2626' },
-    { id: 'copy', icon: 'copy-outline', label: 'Copy Trade', screen: 'CopyTrading', color: '#dc2626' },
-    { id: 'ib', icon: 'people-outline', label: 'IB Program', screen: 'IB', color: '#dc2626' },
+    { id: 'accounts', icon: 'wallet-outline', label: 'Accounts', screen: 'Accounts', color: '#d4a017' },
+    { id: 'wallet', icon: 'card-outline', label: 'Wallet', screen: 'Wallet', color: '#d4a017' },
+    { id: 'copy', icon: 'copy-outline', label: 'Copy Trade', screen: 'CopyTrading', color: '#d4a017' },
+    { id: 'ib', icon: 'people-outline', label: 'IB Program', screen: 'IB', color: '#d4a017' },
   ];
 
   return (
@@ -323,13 +323,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   newsCategory: {
-    backgroundColor: '#dc262620',
+    backgroundColor: '#d4a01720',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
   },
   newsCategoryText: {
-    color: '#dc2626',
+    color: '#d4a017',
     fontSize: 11,
     fontWeight: '600',
   },

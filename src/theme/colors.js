@@ -28,8 +28,8 @@ export const darkTheme = {
   dangerLight: '#ff444420',
   warning: '#fbbf24',
   warningLight: '#fbbf2420',
-  info: '#dc2626',
-  infoLight: '#dc262620',
+  info: '#d4a017',
+  infoLight: '#d4a01720',
   purple: '#8b5cf6',
   purpleLight: '#8b5cf620',
 };

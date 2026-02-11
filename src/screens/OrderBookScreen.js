@@ -535,11 +535,11 @@ const OrderBookScreen = ({ navigation }) => {
               {challengeAccounts.map(acc => (
                 <TouchableOpacity 
                   key={acc._id}
-                  style={[styles.accountOption, { borderBottomColor: colors.border, borderLeftWidth: 3, borderLeftColor: '#dc2626' }, selectedAccount === `challenge_${acc._id}` && styles.accountOptionActive]}
+                  style={[styles.accountOption, { borderBottomColor: colors.border, borderLeftWidth: 3, borderLeftColor: '#d4a017' }, selectedAccount === `challenge_${acc._id}` && styles.accountOptionActive]}
                   onPress={() => { setSelectedAccount(`challenge_${acc._id}`); setShowAccountPicker(false); }}
                 >
                   <Text style={[styles.accountOptionText, { color: colors.textPrimary }]}>
-                    <Text style={{ color: '#dc2626' }}>🏆 </Text>
+                    <Text style={{ color: '#d4a017' }}>🏆 </Text>
                     {acc.accountId} - ${acc.balance?.toFixed(2) || '0.00'}
                   </Text>
                 </TouchableOpacity>
@@ -759,7 +759,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   accountOptionActive: {
-    backgroundColor: '#dc262620',
+    backgroundColor: '#d4a01720',
   },
   accountOptionText: {
     fontSize: 14,
@@ -787,7 +787,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   tabActive: {
-    backgroundColor: '#dc2626',
+    backgroundColor: '#d4a017',
   },
   tabText: {
     color: '#666',
@@ -887,13 +887,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   closeBtn: {
-    backgroundColor: '#dc262620',
+    backgroundColor: '#d4a01720',
     paddingVertical: 10,
     borderRadius: 8,
     alignItems: 'center',
   },
   closeBtnText: {
-    color: '#dc2626',
+    color: '#d4a017',
     fontSize: 14,
     fontWeight: '600',
   },

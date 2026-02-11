@@ -676,7 +676,7 @@ const ProfileScreen = ({ navigation }) => {
           
           <TouchableOpacity style={[styles.actionItem, { backgroundColor: colors.bgCard }]} onPress={() => setShowEditModal(true)}>
             <View style={styles.actionLeft}>
-              <View style={[styles.actionIcon, { backgroundColor: '#dc262620' }]}>
+              <View style={[styles.actionIcon, { backgroundColor: '#d4a01720' }]}>
                 <Ionicons name="create-outline" size={20} color={colors.accent} />
               </View>
               <Text style={[styles.actionText, { color: colors.textPrimary }]}>Edit Profile</Text>
@@ -686,7 +686,7 @@ const ProfileScreen = ({ navigation }) => {
           
           <TouchableOpacity style={[styles.actionItem, { backgroundColor: colors.bgCard }]} onPress={() => setShowPasswordModal(true)}>
             <View style={styles.actionLeft}>
-              <View style={[styles.actionIcon, { backgroundColor: '#dc262620' }]}>
+              <View style={[styles.actionIcon, { backgroundColor: '#d4a01720' }]}>
                 <Ionicons name="lock-closed-outline" size={20} color={colors.accent} />
               </View>
               <Text style={[styles.actionText, { color: colors.textPrimary }]}>Change Password</Text>
@@ -1078,7 +1078,7 @@ const styles = StyleSheet.create({
   
   profileCard: { alignItems: 'center', padding: 30, margin: 16, borderRadius: 20 },
   avatarContainer: { position: 'relative' },
-  avatar: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#dc2626', justifyContent: 'center', alignItems: 'center' },
+  avatar: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#d4a017', justifyContent: 'center', alignItems: 'center' },
   avatarImage: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#333' },
   avatarText: { color: '#000', fontSize: 28, fontWeight: 'bold' },
   avatarEditBtn: { position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#000' },
@@ -1106,7 +1106,7 @@ const styles = StyleSheet.create({
   inputLabel: { fontSize: 12, marginBottom: 8, marginTop: 16 },
   input: { borderRadius: 12, padding: 16, fontSize: 16 },
   
-  submitBtn: { backgroundColor: '#dc2626', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
+  submitBtn: { backgroundColor: '#d4a017', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
   submitBtnDisabled: { opacity: 0.6 },
   submitBtnText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
   
