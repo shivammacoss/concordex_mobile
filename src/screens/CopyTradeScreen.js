@@ -756,32 +756,42 @@ const CopyTradeScreen = ({ navigation }) => {
             </ScrollView>
 
             <Text style={styles.inputLabel}>Copy Mode</Text>
-            <View style={styles.copyModeRow}>
-              {['FIXED_LOT', 'MULTIPLIER'].map(mode => (
+            <View style={[styles.copyModeRow, { flexWrap: 'wrap' }]}>
+              {['FIXED_LOT', 'BALANCE_BASED', 'EQUITY_BASED', 'MULTIPLIER'].map(mode => (
                 <TouchableOpacity
                   key={mode}
-                  style={[styles.copyModeBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }, copyMode === mode && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }]}
+                  style={[styles.copyModeBtn, { backgroundColor: colors.bgCard, borderColor: colors.border, minWidth: '47%' }, copyMode === mode && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }]}
                   onPress={() => setCopyMode(mode)}
                 >
                   <Text style={[styles.copyModeText, { color: colors.textMuted }, copyMode === mode && { color: colors.accent }]}>
-                    {mode === 'FIXED_LOT' ? 'Fixed Lot' : 'Multiplier'}
+                    {mode === 'FIXED_LOT' ? 'Fixed Lot' : mode === 'BALANCE_BASED' ? 'Balance Based' : mode === 'EQUITY_BASED' ? 'Equity Based' : 'Multiplier'}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{copyMode === 'FIXED_LOT' ? 'Lot Size' : 'Multiplier'}</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.bgCard, borderColor: colors.border, color: colors.textPrimary }]}
-              value={copyValue}
-              onChangeText={setCopyValue}
-              placeholder={copyMode === 'FIXED_LOT' ? '0.01' : '1'}
-              placeholderTextColor="#666"
-              keyboardType="numeric"
-            />
-            <Text style={[styles.inputHint, { color: colors.textMuted }]}>
-              {copyMode === 'FIXED_LOT' ? 'Fixed lot size for all copied trades' : '1 = Same size, 0.5 = Half, 2 = Double'}
-            </Text>
+            {(copyMode === 'FIXED_LOT' || copyMode === 'MULTIPLIER') && (
+              <>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{copyMode === 'FIXED_LOT' ? 'Lot Size' : 'Multiplier'}</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.bgCard, borderColor: colors.border, color: colors.textPrimary }]}
+                  value={copyValue}
+                  onChangeText={setCopyValue}
+                  placeholder={copyMode === 'FIXED_LOT' ? '0.01' : '1'}
+                  placeholderTextColor="#666"
+                  keyboardType="numeric"
+                />
+                <Text style={[styles.inputHint, { color: colors.textMuted }]}>
+                  {copyMode === 'FIXED_LOT' ? 'Fixed lot size for all copied trades' : '1 = Same size, 0.5 = Half, 2 = Double'}
+                </Text>
+              </>
+            )}
+            {copyMode === 'BALANCE_BASED' && (
+              <Text style={[styles.inputHint, { color: colors.textMuted, marginTop: 8 }]}>Lot size proportional to your account balance vs master's balance</Text>
+            )}
+            {copyMode === 'EQUITY_BASED' && (
+              <Text style={[styles.inputHint, { color: colors.textMuted, marginTop: 8 }]}>Lot size proportional to your account equity vs master's equity</Text>
+            )}
 
             <TouchableOpacity 
               style={[styles.submitBtn, { backgroundColor: colors.accent }, isSubmitting && styles.submitBtnDisabled]} 
@@ -889,29 +899,39 @@ const CopyTradeScreen = ({ navigation }) => {
             )}
 
             <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Copy Mode</Text>
-            <View style={styles.copyModeRow}>
-              {['FIXED_LOT', 'MULTIPLIER'].map(mode => (
+            <View style={[styles.copyModeRow, { flexWrap: 'wrap' }]}>
+              {['FIXED_LOT', 'BALANCE_BASED', 'EQUITY_BASED', 'MULTIPLIER'].map(mode => (
                 <TouchableOpacity
                   key={mode}
-                  style={[styles.copyModeBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }, editCopyMode === mode && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }]}
+                  style={[styles.copyModeBtn, { backgroundColor: colors.bgCard, borderColor: colors.border, minWidth: '47%' }, editCopyMode === mode && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }]}
                   onPress={() => setEditCopyMode(mode)}
                 >
                   <Text style={[styles.copyModeText, { color: colors.textMuted }, editCopyMode === mode && { color: colors.accent }]}>
-                    {mode === 'FIXED_LOT' ? 'Fixed Lot' : 'Multiplier'}
+                    {mode === 'FIXED_LOT' ? 'Fixed Lot' : mode === 'BALANCE_BASED' ? 'Balance Based' : mode === 'EQUITY_BASED' ? 'Equity Based' : 'Multiplier'}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{editCopyMode === 'FIXED_LOT' ? 'Lot Size' : 'Multiplier'}</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.bgCard, borderColor: colors.border, color: colors.textPrimary }]}
-              value={editCopyValue}
-              onChangeText={setEditCopyValue}
-              placeholder={editCopyMode === 'FIXED_LOT' ? '0.01' : '1'}
-              placeholderTextColor="#666"
-              keyboardType="numeric"
-            />
+            {(editCopyMode === 'FIXED_LOT' || editCopyMode === 'MULTIPLIER') && (
+              <>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{editCopyMode === 'FIXED_LOT' ? 'Lot Size' : 'Multiplier'}</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.bgCard, borderColor: colors.border, color: colors.textPrimary }]}
+                  value={editCopyValue}
+                  onChangeText={setEditCopyValue}
+                  placeholder={editCopyMode === 'FIXED_LOT' ? '0.01' : '1'}
+                  placeholderTextColor="#666"
+                  keyboardType="numeric"
+                />
+              </>
+            )}
+            {editCopyMode === 'BALANCE_BASED' && (
+              <Text style={[styles.inputHint, { color: colors.textMuted, marginTop: 8 }]}>Lot size proportional to your account balance vs master's balance</Text>
+            )}
+            {editCopyMode === 'EQUITY_BASED' && (
+              <Text style={[styles.inputHint, { color: colors.textMuted, marginTop: 8 }]}>Lot size proportional to your account equity vs master's equity</Text>
+            )}
 
             <TouchableOpacity 
               style={[styles.submitBtn, { backgroundColor: colors.accent }, isSubmitting && styles.submitBtnDisabled]} 
