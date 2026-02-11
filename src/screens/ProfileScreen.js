@@ -14,7 +14,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
 import { API_URL, API_BASE_URL } from '../config';
 import { useTheme } from '../context/ThemeContext';
 
@@ -252,11 +251,13 @@ const ProfileScreen = ({ navigation }) => {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: type === 'selfie' ? [1, 1] : [4, 3],
-      quality: 0.8,
+      quality: 0.5,
+      base64: true,
     });
 
-    if (!result.canceled) {
-      setKycData({ ...kycData, [type]: result.assets[0].uri });
+    if (!result.canceled && result.assets[0].base64) {
+      const base64DataUrl = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      setKycData({ ...kycData, [type]: base64DataUrl });
     }
   };
 
@@ -270,23 +271,13 @@ const ProfileScreen = ({ navigation }) => {
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: type === 'selfieImage' ? [1, 1] : [4, 3],
-      quality: 0.8,
+      quality: 0.5,
+      base64: true,
     });
 
-    if (!result.canceled) {
-      setKycData({ ...kycData, [type]: result.assets[0].uri });
-    }
-  };
-
-  // Convert image URI to base64 data URL
-  const imageToBase64 = async (uri) => {
-    if (!uri) return null;
-    try {
-      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-      return `data:image/jpeg;base64,${base64}`;
-    } catch (e) {
-      console.error('Error converting image to base64:', e);
-      return null;
+    if (!result.canceled && result.assets[0].base64) {
+      const base64DataUrl = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      setKycData({ ...kycData, [type]: base64DataUrl });
     }
   };
 
@@ -308,18 +299,7 @@ const ProfileScreen = ({ navigation }) => {
     try {
       const token = await SecureStore.getItemAsync('token');
       
-      // Convert images to base64 data URLs
-      console.log('Converting images to base64...');
-      const frontBase64 = await imageToBase64(kycData.frontImage);
-      const backBase64 = kycData.backImage ? await imageToBase64(kycData.backImage) : null;
-      const selfieBase64 = await imageToBase64(kycData.selfieImage);
-      
-      if (!frontBase64 || !selfieBase64) {
-        Alert.alert('Error', 'Failed to process images. Please try again.');
-        setIsSubmitting(false);
-        return;
-      }
-      
+      // Images are already base64 data URLs from ImagePicker
       console.log('Submitting KYC...');
       const res = await fetch(`${API_URL}/kyc/submit`, {
         method: 'POST',
@@ -331,9 +311,9 @@ const ProfileScreen = ({ navigation }) => {
           userId: user._id,
           documentType: kycData.documentType,
           documentNumber: kycData.documentNumber,
-          frontImage: frontBase64,
-          backImage: backBase64,
-          selfieImage: selfieBase64,
+          frontImage: kycData.frontImage,
+          backImage: kycData.backImage || null,
+          selfieImage: kycData.selfieImage,
         }),
       });
       const data = await res.json();
