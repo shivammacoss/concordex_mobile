@@ -857,6 +857,40 @@ const HomeTab = ({ navigation }) => {
   // Market data tabs state
   const [marketTab, setMarketTab] = useState('watchlist'); // 'watchlist', 'gainers', 'losers'
 
+  // Reset demo account handler
+  const handleResetDemo = (accountId) => {
+    Alert.alert(
+      'Reset Demo Account',
+      'Are you sure you want to reset this demo account? All open trades will be closed and balance will be reset.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await fetch(`${API_URL}/trading-accounts/reset-demo/${accountId}`, { method: 'POST' });
+              const data = await res.json();
+              if (data.success) {
+                Alert.alert('Success', 'Demo account has been reset successfully');
+                if (ctx.user?._id) {
+                  fetchAccounts(ctx.user._id);
+                  fetchOpenTrades();
+                  fetchPendingOrders();
+                  fetchTradeHistory();
+                }
+              } else {
+                Alert.alert('Error', data.message || 'Failed to reset demo account');
+              }
+            } catch (e) {
+              Alert.alert('Error', 'Failed to reset demo account');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   // Fetch banners on mount
   useEffect(() => {
     fetchBanners();
@@ -1320,22 +1354,34 @@ const HomeTab = ({ navigation }) => {
             </View>
           </View>
 
-          {/* Deposit/Withdraw Buttons inside card */}
+          {/* Action Buttons - Different for Demo vs Live */}
           <View style={styles.cardActionButtons}>
-            <TouchableOpacity 
-              style={[styles.depositBtn, { backgroundColor: colors.primary }]}
-              onPress={() => parentNav?.navigate('Accounts', { action: 'deposit', accountId: ctx.selectedAccount?._id })}
-            >
-              <Ionicons name="arrow-down-circle-outline" size={16} color="#fff" />
-              <Text style={styles.depositBtnText}>Deposit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.withdrawBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
-              onPress={() => parentNav?.navigate('Accounts', { action: 'withdraw', accountId: ctx.selectedAccount?._id })}
-            >
-              <Ionicons name="arrow-up-circle-outline" size={16} color={colors.textPrimary} />
-              <Text style={[styles.withdrawBtnText, { color: colors.textPrimary }]}>Withdraw</Text>
-            </TouchableOpacity>
+            {ctx.selectedAccount?.isDemo || ctx.selectedAccount?.accountTypeId?.isDemo ? (
+              <TouchableOpacity 
+                style={[styles.depositBtn, { backgroundColor: '#eab30820', borderWidth: 1, borderColor: '#eab30850', flex: 1 }]}
+                onPress={() => handleResetDemo(ctx.selectedAccount._id)}
+              >
+                <Ionicons name="refresh-outline" size={16} color="#eab308" />
+                <Text style={[styles.depositBtnText, { color: '#eab308' }]}>Reset Demo Account</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity 
+                  style={[styles.depositBtn, { backgroundColor: colors.primary }]}
+                  onPress={() => parentNav?.navigate('Accounts', { action: 'deposit', accountId: ctx.selectedAccount?._id })}
+                >
+                  <Ionicons name="arrow-down-circle-outline" size={16} color="#fff" />
+                  <Text style={styles.depositBtnText}>Deposit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.withdrawBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
+                  onPress={() => parentNav?.navigate('Accounts', { action: 'withdraw', accountId: ctx.selectedAccount?._id })}
+                >
+                  <Ionicons name="arrow-up-circle-outline" size={16} color={colors.textPrimary} />
+                  <Text style={[styles.withdrawBtnText, { color: colors.textPrimary }]}>Withdraw</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       )}
