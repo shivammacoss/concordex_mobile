@@ -5,11 +5,11 @@
     "version": "1.0.0",
     "runtimeVersion": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/concorddexmobilelogo.png",
+    "icon": "./assets/concorddexmobilelogo_black.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/concorddexmobilelogo.png",
+      "image": "./assets/concorddexmobilelogo_black.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
@@ -31,7 +31,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/concorddexmobilelogo.png",
+        "foregroundImage": "./assets/concorddexmobilelogo_black.png",
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
