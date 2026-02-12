@@ -32,6 +32,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/concorddexmobilelogo_foreground.png",
+        "backgroundImage": "./assets/icon_bg_black.png",
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,

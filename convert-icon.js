@@ -16,13 +16,13 @@ async function convertIcon() {
     .raw()
     .toBuffer({ resolveWithObject: true });
 
-  // Replace white/near-white pixels with transparent
+  // Replace white/near-white/light pixels with transparent
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
     const g = data[i + 1];
     const b = data[i + 2];
-    // If pixel is white or near-white (all channels > 240)
-    if (r > 240 && g > 240 && b > 240) {
+    // If pixel is white or near-white (all channels > 220)
+    if (r > 220 && g > 220 && b > 220) {
       data[i + 3] = 0; // Make transparent
     }
   }
